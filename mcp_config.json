@@ -1,0 +1,48 @@
+{
+  "servers": [
+    {
+      "name": "mcp-inspector",
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/inspector",
+        "node",
+        "build/index.js"
+      ],
+      "env_vars": {},
+      "port": 8000,
+      "server_type": "stdio"
+    },
+    {
+      "name": "filesystem",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "."
+      ],
+      "env_vars": {},
+      "port": 8090,
+      "server_type": "stdio"
+    },
+    {
+      "name": "mcp-installer",
+      "command": "npx",
+      "args": [
+        "@anaisbetts/mcp-installer"
+      ],
+      "env_vars": {},
+      "port": 8091,
+      "server_type": "stdio"
+    },
+    {
+      "name": "youtube",
+      "command": "npx",
+      "args": [
+        "-y @anaisbetts/mcp-youtube"
+      ],
+      "env_vars": {},
+      "port": 8092,
+      "server_type": "stdio"
+    }
+  ]
+}

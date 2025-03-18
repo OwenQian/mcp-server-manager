@@ -1,0 +1,2 @@
+# MCP Server Manager dependencies
+# No external dependencies beyond Python standard library 
