@@ -29,20 +29,39 @@ make run-inspector
 ### 3. Run All MCP Servers
 ```bash
 # In another terminal, run all configured MCP servers
-python mcp_servers.py run-all --parallel
+make run-servers
 ```
 
-### 4. Test Connectivity
+### 4. Configure Cursor to Use MCP Servers
+
+Create or edit the Cursor MCP configuration file at `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "url": "http://localhost:8090/sse"
+    },
+    "youtube": {
+      "url": "http://localhost:8092/sse"
+    }
+    // Add other servers as needed
+  }
+}
+```
+
+### 5. Test Connectivity
 In the MCP Inspector web interface:
 1. Connect to an SSE endpoint (e.g., http://localhost:8090/sse)
 2. Try using one of the available MCP services
 
-### 5. Stopping Servers
+Or open Cursor and ask a question that would use one of your configured MCP servers.
+
+### 6. Stopping Servers
 ```bash
 # Stop MCP Inspector
 make stop-inspector
 
-# Ctrl+C in the terminal running the servers or
 # Stop all other MCP servers
 make stop-servers
 ```
@@ -344,3 +363,51 @@ The script stores server configurations in a JSON file (default: `mcp_config.jso
 ```
 
 Environment variables in `env` can be referenced using `${VARIABLE_NAME}` syntax. These will be automatically resolved from the `.env` file when running the servers.
+
+## Using with Cursor
+
+MCP (Model Context Protocol) servers enhance AI assistants like those in Cursor by allowing them to access external tools and data sources. By running these servers locally, you gain more control and privacy.
+
+### Cursor Configuration
+
+1. Create or edit the Cursor MCP configuration file at `~/.cursor/mcp.json`
+2. Add your MCP servers as shown in the example below:
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "url": "http://localhost:8090/sse"
+    },
+    "youtube": {
+      "url": "http://localhost:8092/sse"
+    }
+  }
+}
+```
+
+You can add any of your running MCP servers from the `mcp_config.json` file to this configuration. Each server runs on its own port as specified in the config.
+
+### Available MCP Servers
+
+Depending on your configuration, you may have access to servers like:
+
+- `filesystem` (port 8090): Access to your local file system
+- `youtube` (port 8092): Search and fetch YouTube videos
+- `fetch` (port 8093): Make HTTP requests
+- `github` (port 8094): Interact with GitHub repos
+- `brave-search` (port 8096): Web search capabilities
+- `google-maps` (port 8098): Mapping and location services
+- And more...
+
+### Testing MCP Servers in Cursor
+
+Once you've configured Cursor to use your MCP servers:
+
+1. Open Cursor
+2. Start a new chat and ask a question that would use one of the configured MCP servers
+3. Cursor should now be able to use these servers to access additional functionality
+
+For example:
+- With the filesystem server, ask "List files in my Downloads folder"
+- With the brave-search server, ask "Search the web for the latest news about AI"
