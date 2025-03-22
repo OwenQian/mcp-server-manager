@@ -9,7 +9,10 @@ import time
 import signal
 import atexit
 from typing import Dict, List, Optional
+from dotenv import load_dotenv
 
+# Load environment variables from .env file
+load_dotenv()
 
 # Keep track of background processes for cleanup
 background_processes = []
@@ -48,14 +51,14 @@ class MCPServer:
         name: str,
         command: str,
         args: List[str] = None,
-        env_vars: Dict[str, str] = None,
+        env: Dict[str, str] = None,
         port: Optional[int] = None,
         server_type: str = "stdio"  # New parameter for server type (stdio or sse)
     ):
         self.name = name
         self.command = command
         self.args = args or []
-        self.env_vars = env_vars or {}
+        self.env = env or {}
         self.port = port
         self.server_type = server_type  # Store the server type
 
@@ -64,7 +67,7 @@ class MCPServer:
             "name": self.name,
             "command": self.command,
             "args": self.args,
-            "env_vars": self.env_vars,
+            "env": self.env,
             "port": self.port,
             "server_type": self.server_type  # Include server_type in the serialized data
         }
@@ -75,7 +78,7 @@ class MCPServer:
             name=data["name"],
             command=data["command"],
             args=data.get("args", []),
-            env_vars=data.get("env_vars", {}),
+            env=data.get("env", {}),
             port=data.get("port"),
             server_type=data.get("server_type", "stdio")  # Default to stdio for backward compatibility
         )
@@ -99,7 +102,22 @@ def save_config(config_file: str, servers: List[MCPServer]):
 
 def run_server(server: MCPServer, use_supergateway: bool = True, run_in_background: bool = False):
     env = os.environ.copy()
-    env.update(server.env_vars)
+    
+    # Process environment variables to expand any ${VAR} references
+    processed_env_vars = {}
+    for key, value in server.env.items():
+        if isinstance(value, str) and value.startswith("${") and value.endswith("}"):
+            # Extract variable name from ${VAR}
+            env_var_name = value[2:-1]
+            # Get actual value from environment
+            env_var_value = os.environ.get(env_var_name, "")
+            processed_env_vars[key] = env_var_value
+            print(f"Using environment variable for {key}")
+        else:
+            processed_env_vars[key] = value
+    
+    # Update environment with processed variables
+    env.update(processed_env_vars)
     
     base_cmd = [server.command] + server.args
     
@@ -142,14 +160,11 @@ def run_server(server: MCPServer, use_supergateway: bool = True, run_in_backgrou
             print(f"Server {server.name} launched in background with PID {process.pid}")
             print(f"Logs are written to {log_file_path}")
             
-            # Give the server time to start
-            wait_time = 5
-            print(f"Waiting {wait_time} seconds for server to start...")
-            time.sleep(wait_time)
-            
-            # Check if process is still running
+            # Check if process exited immediately (indicating a failure)
+            # Give a short grace period for immediate crashes
+            time.sleep(0.5)
             if process.poll() is not None:
-                print(f"ERROR: Server {server.name} exited with code {process.returncode}")
+                print(f"ERROR: Server {server.name} exited immediately with code {process.returncode}")
                 print(f"Check logs at {log_file_path}")
                 return False
             
@@ -195,12 +210,14 @@ def main():
     run_parser.add_argument("names", nargs="+", help="Names of the servers to run")
     run_parser.add_argument("--no-supergateway", action="store_true", help="Run without supergateway")
     run_parser.add_argument("--no-background", action="store_true", help="Don't run servers in background")
+    run_parser.add_argument("--parallel", action="store_true", help="Start all servers in parallel (all in background)")
     run_parser.add_argument("--config", default="mcp_config.json", help="Configuration file")
     
     # Run all servers command
     run_all_parser = subparsers.add_parser("run-all", help="Run all configured MCP servers")
     run_all_parser.add_argument("--no-supergateway", action="store_true", help="Run without supergateway")
     run_all_parser.add_argument("--no-background", action="store_true", help="Don't run servers in background")
+    run_all_parser.add_argument("--parallel", action="store_true", help="Start all servers in parallel (all in background)")
     run_all_parser.add_argument("--config", default="mcp_config.json", help="Configuration file")
     
     # Remove server command
@@ -242,7 +259,7 @@ def main():
             name=args.name,
             command=args.cmd,
             args=args.args,
-            env_vars=env_vars,
+            env=env_vars,
             port=args.port,
             server_type=args.type,  # Use the new server type parameter
         )
@@ -262,8 +279,8 @@ def main():
                 print(f"{i+1}. {server.name}")
                 print(f"   Command: {server.command} {' '.join(server.args)}")
                 print(f"   Server type: {server.server_type}")  # Display server type in list output
-                if server.env_vars:
-                    print(f"   Environment variables: {server.env_vars}")
+                if server.env:
+                    print(f"   Environment variables: {server.env}")
                 if server.port:
                     print(f"   Port: {server.port}")
                 print()
@@ -288,18 +305,35 @@ def main():
             if not servers_to_run:
                 return
         
-        # Determine if we should run in background
-        run_in_background = len(servers_to_run) > 1 and not args.no_background
-        
-        # Run each server
-        for i, server in enumerate(servers_to_run):
-            print(f"\nRunning server: {server.name}")
-            # Don't run the last server in background
-            is_last_server = i == len(servers_to_run) - 1
-            background = run_in_background and not is_last_server
-            success = run_server(server, not args.no_supergateway, background)
-            if not success:
-                break
+        # Determine how to run servers
+        if args.parallel:
+            # Run all servers in parallel (all in background)
+            print(f"Starting {len(servers_to_run)} servers in parallel...")
+            for server in servers_to_run:
+                success = run_server(server, not args.no_supergateway, True)  # Always run in background
+                if not success:
+                    print(f"Failed to start server: {server.name}")
+            
+            # Keep the main process running to handle signals
+            try:
+                print("All servers started. Press Ctrl+C to stop all servers.")
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                print("\nStopping all servers...")
+        else:
+            # Traditional mode - run in sequence with last one in foreground
+            run_in_background = len(servers_to_run) > 1 and not args.no_background
+            
+            # Run each server
+            for i, server in enumerate(servers_to_run):
+                print(f"\nRunning server: {server.name}")
+                # Don't run the last server in background
+                is_last_server = i == len(servers_to_run) - 1
+                background = run_in_background and not is_last_server
+                success = run_server(server, not args.no_supergateway, background)
+                if not success:
+                    break
     
     elif args.command == "run-all":
         servers = load_config(args.config)
@@ -308,16 +342,33 @@ def main():
             print("No MCP servers configured")
             return
         
-        # Determine if we should run in background
-        run_in_background = len(servers) > 1 and not args.no_background
+        # Determine how to run servers
+        if args.parallel:
+            # Run all servers in parallel (all in background)
+            print(f"Starting all {len(servers)} servers in parallel...")
+            for server in servers:
+                success = run_server(server, not args.no_supergateway, True)  # Always run in background
+                if not success:
+                    print(f"Failed to start server: {server.name}")
             
-        for i, server in enumerate(servers):
-            # Don't run the last server in background
-            is_last_server = i == len(servers) - 1
-            background = run_in_background and not is_last_server
-            success = run_server(server, not args.no_supergateway, background)
-            if not success:
-                break
+            # Keep the main process running to handle signals
+            try:
+                print("All servers started. Press Ctrl+C to stop all servers.")
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                print("\nStopping all servers...")
+        else:
+            # Traditional mode - run in sequence with last one in foreground
+            run_in_background = len(servers) > 1 and not args.no_background
+                
+            for i, server in enumerate(servers):
+                # Don't run the last server in background
+                is_last_server = i == len(servers) - 1
+                background = run_in_background and not is_last_server
+                success = run_server(server, not args.no_supergateway, background)
+                if not success:
+                    break
     
     elif args.command == "remove":
         servers = load_config(args.config)

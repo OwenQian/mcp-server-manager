@@ -11,6 +11,7 @@ A Python script to manage Model Context Protocol (MCP) servers with Supergateway
 - Automatically wraps stdio servers with Supergateway to expose them as SSE servers
 - Run multiple servers simultaneously with background mode
 - Properly manage and clean up background processes
+- Support for environment variables in the configuration
 
 ## Installation
 
@@ -18,6 +19,21 @@ A Python script to manage Model Context Protocol (MCP) servers with Supergateway
 
 - Python 3.6+
 - Supergateway must be installed and available in your PATH
+- python-dotenv package (`pip install python-dotenv`)
+
+### Environment Setup
+
+Create a `.env` file in the root directory with your API keys:
+
+```
+# MCP Server API Keys
+GITHUB_PERSONAL_ACCESS_TOKEN=your_github_token
+PERPLEXITY_API_KEY=your_perplexity_key
+BRAVE_API_KEY=your_brave_key
+GOOGLE_API_KEY=your_google_key
+```
+
+Make sure to add `.env` to your `.gitignore` to avoid committing sensitive keys.
 
 ## Usage
 
@@ -44,6 +60,11 @@ python mcp_servers.py add --name github-api --cmd python --args github_mcp_serve
 Example for SSE server:
 ```bash
 python mcp_servers.py add --name perplexity-api --cmd python --args perplexity_mcp_server.py --type sse
+```
+
+To reference an environment variable in the configuration:
+```bash
+python mcp_servers.py add --name github-api --cmd python --args github_mcp_server.py --env API_KEY=${GITHUB_API_KEY} --type stdio
 ```
 
 ### Listing configured servers
@@ -74,9 +95,16 @@ python mcp_servers.py run filesystem mcp-inspector
 
 The script will:
 1. Start the `filesystem` server in the background
-2. Wait 5 seconds for it to initialize
+2. Check if it started successfully
 3. Start the `mcp-inspector` server in the foreground
 4. When you exit the foreground server, all background processes will be automatically terminated
+
+#### Run with parallel mode:
+```bash
+python mcp_servers.py run <server1_name> <server2_name> ... --parallel
+```
+
+This will start all servers in parallel (all in background) and keep the main process running to handle signals. Press Ctrl+C to stop all servers.
 
 #### Run without background mode:
 ```bash
@@ -101,6 +129,12 @@ Use `--no-background` if you want to run them sequentially:
 
 ```bash
 python mcp_servers.py run-all --no-background
+```
+
+Use `--parallel` to start all servers in parallel:
+
+```bash
+python mcp_servers.py run-all --parallel
 ```
 
 ### Stopping background servers
@@ -136,8 +170,8 @@ The script stores server configurations in a JSON file (default: `mcp_config.jso
       "name": "github-api",
       "command": "python",
       "args": ["github_mcp_server.py"],
-      "env_vars": {
-        "API_KEY": "abc123"
+      "env": {
+        "API_KEY": "${GITHUB_API_KEY}"
       },
       "port": 8080,
       "server_type": "stdio"
@@ -146,10 +180,12 @@ The script stores server configurations in a JSON file (default: `mcp_config.jso
       "name": "perplexity-api",
       "command": "python",
       "args": ["perplexity_mcp_server.py"],
-      "env_vars": {},
+      "env": {},
       "port": null,
       "server_type": "sse"
     }
   ]
 }
-``` 
+```
+
+Environment variables in `env` can be referenced using `${VARIABLE_NAME}` syntax. These will be automatically resolved from the `.env` file when running the servers. 

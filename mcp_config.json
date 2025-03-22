@@ -8,9 +8,12 @@
         "node",
         "build/index.js"
       ],
-      "env_vars": {},
+      "env": {
+          "CLIENT_PORT": "5173",
+          "SERVER_PORT": "8089"
+      },
       "port": 8000,
-      "server_type": "stdio"
+      "server_type": "sse"
     },
     {
       "name": "filesystem",
@@ -18,9 +21,9 @@
       "args": [
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "."
+        "/Users/owen/Projects/"
       ],
-      "env_vars": {},
+      "env": {},
       "port": 8090,
       "server_type": "stdio"
     },
@@ -30,7 +33,7 @@
       "args": [
         "@anaisbetts/mcp-installer"
       ],
-      "env_vars": {},
+      "env": {},
       "port": 8091,
       "server_type": "stdio"
     },
@@ -40,8 +43,81 @@
       "args": [
         "-y @anaisbetts/mcp-youtube"
       ],
-      "env_vars": {},
+      "env": {},
       "port": 8092,
+      "server_type": "stdio"
+    },
+    {
+      "name": "fetch",
+      "command": "uvx",
+      "args": [
+        "mcp-server-fetch"
+      ],
+      "env": {},
+      "port": 8093,
+      "server_type": "stdio"
+    },
+    {
+      "name": "github",
+      "command": "node",
+      "args": [
+          "/Users/owen/Projects/modelcontextprotocol-servers/src/github/dist/index.js"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+      },
+      "port": 8094,
+      "server_type": "stdio"
+    },
+    {
+      "name": "perplexity",
+      "command": "uvx",
+      "args": [
+        "mcp-server-perplexity"
+      ],
+      "env": {
+        "PERPLEXITY_API_KEY": "${PERPLEXITY_API_KEY}"
+      },
+      "port": 8095,
+      "server_type": "stdio"
+    },
+    {
+      "name": "brave-search",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-brave-search"
+      ],
+      "env": {
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+      },
+      "port": 8096,
+      "server_type": "stdio"
+    },
+    {
+      "name": "git",
+      "command": "uv",
+      "args": [ 
+        "--directory",
+        "/Users/owen/Projects/modelcontextprotocol-servers/src/git",
+        "run",
+        "mcp-server-git"
+      ],
+      "env": {},
+      "port": 8097,
+      "server_type": "stdio"
+    },
+    {
+      "name": "google-maps",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-google-maps"
+      ],
+      "env": {
+        "GOOGLE_API_KEY": "${GOOGLE_API_KEY}"
+      },
+      "port": 8098,
       "server_type": "stdio"
     }
   ]
