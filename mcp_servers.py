@@ -210,14 +210,14 @@ def main():
     run_parser.add_argument("names", nargs="+", help="Names of the servers to run")
     run_parser.add_argument("--no-supergateway", action="store_true", help="Run without supergateway")
     run_parser.add_argument("--no-background", action="store_true", help="Don't run servers in background")
-    run_parser.add_argument("--parallel", action="store_true", help="Start all servers in parallel (all in background)")
+    run_parser.add_argument("--sequential", action="store_true", help="Run servers sequentially with the last one in foreground (legacy behavior)")
     run_parser.add_argument("--config", default="mcp_config.json", help="Configuration file")
     
     # Run all servers command
     run_all_parser = subparsers.add_parser("run-all", help="Run all configured MCP servers")
     run_all_parser.add_argument("--no-supergateway", action="store_true", help="Run without supergateway")
     run_all_parser.add_argument("--no-background", action="store_true", help="Don't run servers in background")
-    run_all_parser.add_argument("--parallel", action="store_true", help="Start all servers in parallel (all in background)")
+    run_all_parser.add_argument("--sequential", action="store_true", help="Run servers sequentially with the last one in foreground (legacy behavior)")
     run_all_parser.add_argument("--config", default="mcp_config.json", help="Configuration file")
     
     # Remove server command
@@ -306,7 +306,18 @@ def main():
                 return
         
         # Determine how to run servers
-        if args.parallel:
+        if args.sequential:
+            # Run servers sequentially with the last one in foreground
+            run_in_background = len(servers_to_run) > 1 and not args.no_background
+            
+            for i, server in enumerate(servers_to_run):
+                # Don't run the last server in background
+                is_last_server = i == len(servers_to_run) - 1
+                background = run_in_background and not is_last_server
+                success = run_server(server, not args.no_supergateway, background)
+                if not success:
+                    break
+        else:
             # Run all servers in parallel (all in background)
             print(f"Starting {len(servers_to_run)} servers in parallel...")
             for server in servers_to_run:
@@ -321,19 +332,6 @@ def main():
                     time.sleep(1)
             except KeyboardInterrupt:
                 print("\nStopping all servers...")
-        else:
-            # Traditional mode - run in sequence with last one in foreground
-            run_in_background = len(servers_to_run) > 1 and not args.no_background
-            
-            # Run each server
-            for i, server in enumerate(servers_to_run):
-                print(f"\nRunning server: {server.name}")
-                # Don't run the last server in background
-                is_last_server = i == len(servers_to_run) - 1
-                background = run_in_background and not is_last_server
-                success = run_server(server, not args.no_supergateway, background)
-                if not success:
-                    break
     
     elif args.command == "run-all":
         servers = load_config(args.config)
@@ -343,9 +341,20 @@ def main():
             return
         
         # Determine how to run servers
-        if args.parallel:
+        if args.sequential:
+            # Run servers sequentially with the last one in foreground
+            run_in_background = len(servers) > 1 and not args.no_background
+            
+            for i, server in enumerate(servers):
+                # Don't run the last server in background
+                is_last_server = i == len(servers) - 1
+                background = run_in_background and not is_last_server
+                success = run_server(server, not args.no_supergateway, background)
+                if not success:
+                    break
+        else:
             # Run all servers in parallel (all in background)
-            print(f"Starting all {len(servers)} servers in parallel...")
+            print(f"Starting {len(servers)} servers in parallel...")
             for server in servers:
                 success = run_server(server, not args.no_supergateway, True)  # Always run in background
                 if not success:
@@ -358,17 +367,6 @@ def main():
                     time.sleep(1)
             except KeyboardInterrupt:
                 print("\nStopping all servers...")
-        else:
-            # Traditional mode - run in sequence with last one in foreground
-            run_in_background = len(servers) > 1 and not args.no_background
-                
-            for i, server in enumerate(servers):
-                # Don't run the last server in background
-                is_last_server = i == len(servers) - 1
-                background = run_in_background and not is_last_server
-                success = run_server(server, not args.no_supergateway, background)
-                if not success:
-                    break
     
     elif args.command == "remove":
         servers = load_config(args.config)

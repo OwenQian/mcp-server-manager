@@ -2,6 +2,51 @@
 
 A Python script to manage Model Context Protocol (MCP) servers with Supergateway as SSE servers.
 
+## QuickStart
+
+### 1. Set Up Environment
+```bash
+# Clone the repository and cd
+cd mcp-server-manager
+
+# Set up your environment file with API keys
+cp .env.example .env
+# Edit .env and add your API keys
+
+# Install required packages
+pip install -r requirements.txt
+```
+
+### 2. Run the MCP Inspector
+```bash
+# Start the MCP Inspector server
+make run-inspector
+
+# In a web browser, navigate to:
+# http://localhost:5173
+```
+
+### 3. Run All MCP Servers
+```bash
+# In another terminal, run all configured MCP servers
+python mcp_servers.py run-all --parallel
+```
+
+### 4. Test Connectivity
+In the MCP Inspector web interface:
+1. Connect to an SSE endpoint (e.g., http://localhost:8090/sse)
+2. Try using one of the available MCP services
+
+### 5. Stopping Servers
+```bash
+# Stop MCP Inspector
+make stop-inspector
+
+# Ctrl+C in the terminal running the servers or
+# Stop all other MCP servers
+python mcp_servers.py stop
+```
+
 ## Features
 
 - Configure and manage multiple MCP servers
