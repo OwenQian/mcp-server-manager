@@ -1,21 +1,6 @@
 {
   "servers": [
     {
-      "name": "mcp-inspector",
-      "command": "npx",
-      "args": [
-        "@modelcontextprotocol/inspector",
-        "node",
-        "build/index.js"
-      ],
-      "env": {
-          "CLIENT_PORT": "5173",
-          "SERVER_PORT": "8089"
-      },
-      "port": 8000,
-      "server_type": "sse"
-    },
-    {
       "name": "filesystem",
       "command": "npx",
       "args": [
@@ -109,15 +94,36 @@
     },
     {
       "name": "google-maps",
+      "command": "node",
+      "args": [
+        "/Users/owen/Projects/modelcontextprotocol-servers/src/google-maps/dist/index.js"
+      ],
+      "env": {
+        "GOOGLE_MAPS_API_KEY": "${GOOGLE_MAPS_API_KEY}"
+      },
+      "port": 8098,
+      "server_type": "stdio"
+    },
+    {
+      "name": "sequential-thinking",
       "command": "npx",
       "args": [
         "-y",
-        "@modelcontextprotocol/server-google-maps"
+        "@modelcontextprotocol/server-sequential-thinking"
       ],
-      "env": {
-        "GOOGLE_API_KEY": "${GOOGLE_API_KEY}"
-      },
-      "port": 8098,
+      "env": {},
+      "port": 8099,
+      "server_type": "stdio"
+    },
+    {
+      "name": "memory",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ],
+      "env": {},
+      "port": 8100,
       "server_type": "stdio"
     }
   ]

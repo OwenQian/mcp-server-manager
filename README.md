@@ -35,6 +35,92 @@ GOOGLE_API_KEY=your_google_key
 
 Make sure to add `.env` to your `.gitignore` to avoid committing sensitive keys.
 
+## MCP Inspector Server
+
+The MCP Inspector server is now managed separately using a dedicated script and a Makefile.
+
+### Running the MCP Inspector Server with Make
+
+```bash
+# Check if the required ports are available
+make check-ports
+
+# Kill processes using conflicting ports (uses SIGTERM)
+make kill-conflicts
+
+# Force kill processes using conflicting ports (uses SIGKILL)
+make force-kill-conflicts 
+
+# Kill conflicts and then start the inspector
+make run-inspector-after-kill
+
+# Start the MCP Inspector server
+make run-inspector
+
+# Stop the MCP Inspector server
+make stop-inspector
+
+# Show available commands and configuration options
+make help
+
+# Force start even if ports are in use
+FORCE=1 make run-inspector
+```
+
+### Configuration Options
+
+You can customize the MCP Inspector server by setting environment variables:
+
+```bash
+# Custom ports
+CLIENT_PORT=5174 SERVER_PORT=8090 INSPECTOR_PORT=8001 make run-inspector
+
+# Check specific ports
+CLIENT_PORT=5174 SERVER_PORT=8090 INSPECTOR_PORT=8001 make check-ports
+
+# Kill processes on specific ports
+CLIENT_PORT=5174 SERVER_PORT=8090 INSPECTOR_PORT=8001 make kill-conflicts
+```
+
+### Running the MCP Inspector Server Directly
+
+You can also run the MCP Inspector server directly using the dedicated Python script:
+
+```bash
+# Run in background mode (default)
+./mcp_inspector.py
+
+# Run in foreground mode
+./mcp_inspector.py --foreground
+
+# Customize ports
+./mcp_inspector.py --client-port 5174 --server-port 8090 --inspector-port 8001
+
+# Set additional environment variables
+./mcp_inspector.py --env KEY1=value1 KEY2=value2
+
+# Force start even if ports are in use
+./mcp_inspector.py --force
+
+# Only check if ports are available (won't start the server)
+./mcp_inspector.py --check-ports-only
+
+# Kill processes using conflicting ports
+./mcp_inspector.py --kill-conflicts
+
+# Kill processes with SIGKILL if SIGTERM doesn't work
+./mcp_inspector.py --kill-conflicts --force-kill
+```
+
+### Port Conflict Detection
+
+The MCP Inspector now automatically checks if required ports are available before starting. If a port is already in use, it will show the PIDs of the conflicting processes and fail. You can:
+
+1. Fix the conflicts by stopping the conflicting processes manually
+2. Use different ports with the `CLIENT_PORT`, `SERVER_PORT`, and `INSPECTOR_PORT` variables
+3. Force start with the `--force` option or `FORCE=1` environment variable
+4. Automatically kill conflicting processes with `make kill-conflicts` or `./mcp_inspector.py --kill-conflicts`
+
 ## Usage
 
 Make the script executable:
