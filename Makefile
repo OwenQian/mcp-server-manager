@@ -1,39 +1,31 @@
 # MCP Inspector Standalone Server Makefile
 
-.PHONY: run-inspector stop-inspector help check-ports kill-conflicts force-kill-conflicts
+.PHONY: run-inspector stop-inspector check-ports check-server-ports check-all-ports kill-conflicts kill-server-conflicts run-inspector-after-kill run-servers stop-servers
 
 # Default environment variables
 CLIENT_PORT ?= 5173
 SERVER_PORT ?= 8089
 INSPECTOR_PORT ?= 8000
-
-help:
-	@echo "MCP Inspector Server Commands:"
-	@echo "  make run-inspector        - Start the MCP inspector server"
-	@echo "  make stop-inspector       - Stop the running MCP inspector server"
-	@echo "  make check-ports          - Check if required ports are available"
-	@echo "  make kill-conflicts       - Kill processes using conflicting ports"
-	@echo "  make force-kill-conflicts - Force kill processes using conflicting ports (SIGKILL)"
-	@echo ""
-	@echo "Configuration options (can be set via environment variables):"
-	@echo "  CLIENT_PORT=5173      - Port for the inspector client (default: 5173)"
-	@echo "  SERVER_PORT=8089      - Port for the inspector server (default: 8089)"
-	@echo "  INSPECTOR_PORT=8000   - Port for the SSE connection (default: 8000)"
-	@echo ""
-	@echo "Additional options:"
-	@echo "  FORCE=1              - Force start even if ports are in use"
+CONFIG_FILE ?= mcp_config.json
 
 check-ports:
-	@echo "Checking if required ports are available..."
-	@./mcp_inspector.py --check-ports-only --client-port $(CLIENT_PORT) --server-port $(SERVER_PORT) --inspector-port $(INSPECTOR_PORT)
+	@echo "Checking if required inspector ports are available..."
+	@python mcp_inspector.py --check-ports-only --client-port $(CLIENT_PORT) --server-port $(SERVER_PORT) --inspector-port $(INSPECTOR_PORT)
+
+check-server-ports:
+	@echo "Checking if required server ports are available..."
+	@python check_server_ports.py --config $(CONFIG_FILE)
+
+check-all-ports: check-ports check-server-ports
+	@echo "All port checks completed."
 
 kill-conflicts:
-	@echo "Killing processes using conflicting ports..."
-	@./mcp_inspector.py --kill-conflicts --client-port $(CLIENT_PORT) --server-port $(SERVER_PORT) --inspector-port $(INSPECTOR_PORT)
+	@echo "Killing processes using conflicting inspector ports..."
+	@python mcp_inspector.py --kill-conflicts --client-port $(CLIENT_PORT) --server-port $(SERVER_PORT) --inspector-port $(INSPECTOR_PORT)
 
-force-kill-conflicts:
-	@echo "Force killing processes using conflicting ports..."
-	@./mcp_inspector.py --kill-conflicts --force-kill --client-port $(CLIENT_PORT) --server-port $(SERVER_PORT) --inspector-port $(INSPECTOR_PORT)
+kill-server-conflicts:
+	@echo "Killing processes using conflicting server ports..."
+	@python check_server_ports.py --config $(CONFIG_FILE) --kill-conflicts
 
 run-inspector-after-kill: kill-conflicts
 	@echo "Starting MCP Inspector server after killing conflicts..."
@@ -43,9 +35,9 @@ run-inspector:
 	@echo "Starting MCP Inspector server..."
 	@mkdir -p logs
 	@if [ "$(FORCE)" = "1" ]; then \
-		./mcp_inspector.py --client-port $(CLIENT_PORT) --server-port $(SERVER_PORT) --inspector-port $(INSPECTOR_PORT) --force; \
+		python mcp_inspector.py --client-port $(CLIENT_PORT) --server-port $(SERVER_PORT) --inspector-port $(INSPECTOR_PORT) --force; \
 	else \
-		./mcp_inspector.py --client-port $(CLIENT_PORT) --server-port $(SERVER_PORT) --inspector-port $(INSPECTOR_PORT); \
+		python mcp_inspector.py --client-port $(CLIENT_PORT) --server-port $(SERVER_PORT) --inspector-port $(INSPECTOR_PORT); \
 	fi
 
 stop-inspector:
@@ -55,4 +47,12 @@ stop-inspector:
 		rm .mcp-inspector.pid; \
 	else \
 		echo "No running MCP Inspector server found"; \
-	fi 
+	fi
+
+run-servers:
+	@echo "Starting all MCP servers"
+	@python mcp_servers.py run-all
+
+stop-servers:
+	@echo "Stopping all MCP servers..."
+	@python mcp_servers.py stop 

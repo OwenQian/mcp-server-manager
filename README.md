@@ -44,7 +44,7 @@ make stop-inspector
 
 # Ctrl+C in the terminal running the servers or
 # Stop all other MCP servers
-python mcp_servers.py stop
+make stop-servers
 ```
 
 ## Features
@@ -85,14 +85,20 @@ The MCP Inspector server is now managed separately using a dedicated script and 
 ### Running the MCP Inspector Server with Make
 
 ```bash
-# Check if the required ports are available
+# Check if the inspector ports are available
 make check-ports
 
-# Kill processes using conflicting ports (uses SIGTERM)
+# Check if the server ports (defined in mcp_config.json) are available
+make check-server-ports
+
+# Check if all ports (inspector and server) are available
+make check-all-ports
+
+# Kill processes using conflicting inspector ports (uses SIGTERM)
 make kill-conflicts
 
-# Force kill processes using conflicting ports (uses SIGKILL)
-make force-kill-conflicts 
+# Kill processes using conflicting server ports (uses SIGTERM)
+make kill-server-conflicts
 
 # Kill conflicts and then start the inspector
 make run-inspector-after-kill
@@ -103,11 +109,17 @@ make run-inspector
 # Stop the MCP Inspector server
 make stop-inspector
 
-# Show available commands and configuration options
-make help
+# Run all MCP servers
+make run-servers
+
+# Stop all running MCP servers
+make stop-servers
 
 # Force start even if ports are in use
 FORCE=1 make run-inspector
+
+# Use a custom configuration file
+CONFIG_FILE=custom_config.json make check-server-ports
 ```
 
 ### Configuration Options
@@ -131,28 +143,25 @@ You can also run the MCP Inspector server directly using the dedicated Python sc
 
 ```bash
 # Run in background mode (default)
-./mcp_inspector.py
+python mcp_inspector.py
 
 # Run in foreground mode
-./mcp_inspector.py --foreground
+python mcp_inspector.py --foreground
 
 # Customize ports
-./mcp_inspector.py --client-port 5174 --server-port 8090 --inspector-port 8001
+python mcp_inspector.py --client-port 5174 --server-port 8090 --inspector-port 8001
 
 # Set additional environment variables
-./mcp_inspector.py --env KEY1=value1 KEY2=value2
+python mcp_inspector.py --env KEY1=value1 KEY2=value2
 
 # Force start even if ports are in use
-./mcp_inspector.py --force
+python mcp_inspector.py --force
 
 # Only check if ports are available (won't start the server)
-./mcp_inspector.py --check-ports-only
+python mcp_inspector.py --check-ports-only
 
 # Kill processes using conflicting ports
-./mcp_inspector.py --kill-conflicts
-
-# Kill processes with SIGKILL if SIGTERM doesn't work
-./mcp_inspector.py --kill-conflicts --force-kill
+python mcp_inspector.py --kill-conflicts
 ```
 
 ### Port Conflict Detection
@@ -162,7 +171,13 @@ The MCP Inspector now automatically checks if required ports are available befor
 1. Fix the conflicts by stopping the conflicting processes manually
 2. Use different ports with the `CLIENT_PORT`, `SERVER_PORT`, and `INSPECTOR_PORT` variables
 3. Force start with the `--force` option or `FORCE=1` environment variable
-4. Automatically kill conflicting processes with `make kill-conflicts` or `./mcp_inspector.py --kill-conflicts`
+4. Automatically kill conflicting processes with `make kill-conflicts` or `python mcp_inspector.py --kill-conflicts`
+
+Server port checking is now dynamic and reads from the `mcp_config.json` configuration file. This ensures all ports needed by your servers are properly checked without hardcoding. You can:
+
+1. Run `make check-server-ports` to check all server ports defined in the config
+2. Run `make kill-server-conflicts` to kill processes using server ports
+3. Use a different config file with `CONFIG_FILE=custom_config.json make check-server-ports`
 
 ### Exit Codes
 
@@ -170,8 +185,8 @@ The port checking and conflict killing tools use the following exit codes:
 
 - `make check-ports`: Exits with code 0 if all ports are available, 1 if there are conflicts
 - `make kill-conflicts`: Exits with code 0 if all conflicts were successfully killed, 1 if there were issues
-- `./mcp_inspector.py --check-ports-only`: Returns 0 if all ports are available, 1 if there are conflicts
-- `./mcp_inspector.py --kill-conflicts`: Returns 0 if all conflicts were successfully killed, 1 if there were issues
+- `python mcp_inspector.py --check-ports-only`: Returns 0 if all ports are available, 1 if there are conflicts
+- `python mcp_inspector.py --kill-conflicts`: Returns 0 if all conflicts were successfully killed, 1 if there were issues
 
 These exit codes can be useful in shell scripts for conditional logic.
 
@@ -328,4 +343,4 @@ The script stores server configurations in a JSON file (default: `mcp_config.jso
 }
 ```
 
-Environment variables in `env` can be referenced using `${VARIABLE_NAME}` syntax. These will be automatically resolved from the `.env` file when running the servers. 
+Environment variables in `env` can be referenced using `${VARIABLE_NAME}` syntax. These will be automatically resolved from the `.env` file when running the servers.

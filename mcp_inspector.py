@@ -86,7 +86,7 @@ def check_ports(client_port: int, server_port: int, inspector_port: int) -> bool
     return not has_conflicts
 
 
-def kill_conflicting_processes(client_port: int, server_port: int, inspector_port: int, force: bool = False) -> bool:
+def kill_conflicting_processes(client_port: int, server_port: int, inspector_port: int) -> bool:
     """Kill processes using the specified ports"""
     ports_to_check = [
         (client_port, "CLIENT_PORT"),
@@ -103,7 +103,6 @@ def kill_conflicting_processes(client_port: int, server_port: int, inspector_por
             print(f"Killing processes using {port_name} ({port}):")
             for pid, name in conflicts:
                 try:
-                    # Try SIGTERM first
                     print(f"  - Sending SIGTERM to PID {pid} ({name})")
                     os.kill(pid, signal.SIGTERM)
                     killed_pids.append(pid)
@@ -114,24 +113,6 @@ def kill_conflicting_processes(client_port: int, server_port: int, inspector_por
     # If any processes were killed with SIGTERM, give them a moment to shut down
     if killed_pids:
         time.sleep(1)
-    
-    # Check if any processes are still running and need SIGKILL
-    if force:
-        still_running = []
-        for port, port_name in ports_to_check:
-            conflicts = check_port_in_use(port)
-            for pid, name in conflicts:
-                if pid in killed_pids:
-                    still_running.append((pid, name, port_name, port))
-        
-        # Send SIGKILL to processes that didn't terminate
-        for pid, name, port_name, port in still_running:
-            try:
-                print(f"  - Sending SIGKILL to PID {pid} ({name}) on {port_name} ({port})")
-                os.kill(pid, signal.SIGKILL)
-            except OSError as e:
-                print(f"    Error force killing process {pid}: {e}")
-                all_killed = False
     
     # Do a final check
     has_conflicts = False
@@ -249,8 +230,6 @@ def main():
                         help="Only check if ports are available and exit")
     parser.add_argument("--kill-conflicts", action="store_true",
                         help="Kill processes using conflicting ports")
-    parser.add_argument("--force-kill", action="store_true",
-                        help="Use SIGKILL if SIGTERM doesn't work when killing conflicts")
     
     args = parser.parse_args()
     
@@ -268,8 +247,7 @@ def main():
         success = kill_conflicting_processes(
             args.client_port, 
             args.server_port, 
-            args.inspector_port,
-            args.force_kill
+            args.inspector_port
         )
         sys.exit(0 if success else 1)
     
