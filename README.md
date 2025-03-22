@@ -2,6 +2,15 @@
 
 A Python script to manage Model Context Protocol (MCP) servers with Supergateway as SSE servers.
 
+## Features
+
+- Configure and manage multiple MCP servers
+- Automatically wraps stdio servers with Supergateway to expose them as SSE servers
+- Run multiple servers simultaneously with background mode
+- Support for both stdio and SSE MCP servers
+- Properly manage and clean up background processes
+
+
 ## QuickStart
 
 ### 1. Set Up Environment
@@ -36,19 +45,7 @@ make run-servers
 
 Create or edit the Cursor MCP configuration file at `~/.cursor/mcp.json`:
 
-```json
-{
-  "mcpServers": {
-    "filesystem": {
-      "url": "http://localhost:8090/sse"
-    },
-    "youtube": {
-      "url": "http://localhost:8092/sse"
-    }
-    // Add other servers as needed
-  }
-}
-```
+See the [Using with Cursor](#using-with-cursor) section below for more details on available servers and usage examples.
 
 ### 5. Test Connectivity
 In the MCP Inspector web interface:
@@ -65,17 +62,6 @@ make stop-inspector
 # Stop all other MCP servers
 make stop-servers
 ```
-
-## Features
-
-- Configure and manage multiple MCP servers
-- Set custom commands, arguments, and environment variables for each server
-- Run individual, multiple, or all configured servers
-- Support for both stdio and SSE MCP servers
-- Automatically wraps stdio servers with Supergateway to expose them as SSE servers
-- Run multiple servers simultaneously with background mode
-- Properly manage and clean up background processes
-- Support for environment variables in the configuration
 
 ## Installation
 
@@ -104,23 +90,11 @@ The MCP Inspector server is now managed separately using a dedicated script and 
 ### Running the MCP Inspector Server with Make
 
 ```bash
-# Check if the inspector ports are available
-make check-ports
-
-# Check if the server ports (defined in mcp_config.json) are available
-make check-server-ports
-
 # Check if all ports (inspector and server) are available
 make check-all-ports
 
-# Kill processes using conflicting inspector ports (uses SIGTERM)
+# Kill processes using conflicting inspector ports
 make kill-conflicts
-
-# Kill processes using conflicting server ports (uses SIGTERM)
-make kill-server-conflicts
-
-# Kill conflicts and then start the inspector
-make run-inspector-after-kill
 
 # Start the MCP Inspector server
 make run-inspector
@@ -156,33 +130,6 @@ CLIENT_PORT=5174 SERVER_PORT=8090 INSPECTOR_PORT=8001 make check-ports
 CLIENT_PORT=5174 SERVER_PORT=8090 INSPECTOR_PORT=8001 make kill-conflicts
 ```
 
-### Running the MCP Inspector Server Directly
-
-You can also run the MCP Inspector server directly using the dedicated Python script:
-
-```bash
-# Run in background mode (default)
-python mcp_inspector.py
-
-# Run in foreground mode
-python mcp_inspector.py --foreground
-
-# Customize ports
-python mcp_inspector.py --client-port 5174 --server-port 8090 --inspector-port 8001
-
-# Set additional environment variables
-python mcp_inspector.py --env KEY1=value1 KEY2=value2
-
-# Force start even if ports are in use
-python mcp_inspector.py --force
-
-# Only check if ports are available (won't start the server)
-python mcp_inspector.py --check-ports-only
-
-# Kill processes using conflicting ports
-python mcp_inspector.py --kill-conflicts
-```
-
 ### Port Conflict Detection
 
 The MCP Inspector now automatically checks if required ports are available before starting. If a port is already in use, it will show the PIDs of the conflicting processes and fail. You can:
@@ -192,31 +139,16 @@ The MCP Inspector now automatically checks if required ports are available befor
 3. Force start with the `--force` option or `FORCE=1` environment variable
 4. Automatically kill conflicting processes with `make kill-conflicts` or `python mcp_inspector.py --kill-conflicts`
 
-Server port checking is now dynamic and reads from the `mcp_config.json` configuration file. This ensures all ports needed by your servers are properly checked without hardcoding. You can:
+Server port checking is dynamic and reads from the `mcp_config.json` configuration file. This ensures all ports needed by your servers are properly checked without hardcoding. You can:
 
 1. Run `make check-server-ports` to check all server ports defined in the config
 2. Run `make kill-server-conflicts` to kill processes using server ports
 3. Use a different config file with `CONFIG_FILE=custom_config.json make check-server-ports`
 
-### Exit Codes
-
-The port checking and conflict killing tools use the following exit codes:
-
-- `make check-ports`: Exits with code 0 if all ports are available, 1 if there are conflicts
-- `make kill-conflicts`: Exits with code 0 if all conflicts were successfully killed, 1 if there were issues
-- `python mcp_inspector.py --check-ports-only`: Returns 0 if all ports are available, 1 if there are conflicts
-- `python mcp_inspector.py --kill-conflicts`: Returns 0 if all conflicts were successfully killed, 1 if there were issues
-
-These exit codes can be useful in shell scripts for conditional logic.
-
-## Usage
-
-Make the script executable:
-```bash
-chmod +x mcp_servers.py
-```
+## Managing MCP Servers
 
 ### Adding a new MCP server configuration
+The easiest way is to tell Cursor to do it for you. You can also use the CLI or edit `mcp_config.json` directly.
 
 ```bash
 python mcp_servers.py add --name <server_name> --cmd <command> [--args arg1 arg2 ...] [--env KEY1=VALUE1 KEY2=VALUE2 ...] [--port <port>] [--type stdio|sse]
@@ -267,48 +199,10 @@ For example:
 python mcp_servers.py run filesystem mcp-inspector
 ```
 
-The script will:
-1. Start the `filesystem` server in the background
-2. Check if it started successfully
-3. Start the `mcp-inspector` server in the foreground
-4. When you exit the foreground server, all background processes will be automatically terminated
-
-#### Run with parallel mode:
-```bash
-python mcp_servers.py run <server1_name> <server2_name> ... --parallel
-```
-
-This will start all servers in parallel (all in background) and keep the main process running to handle signals. Press Ctrl+C to stop all servers.
-
-#### Run without background mode:
-```bash
-python mcp_servers.py run <server1_name> <server2_name> ... --no-background
-```
-
-This will run each server in sequence (each one blocking until it's terminated).
-
-#### Run without Supergateway:
-```bash
-python mcp_servers.py run <server_name> --no-supergateway
-```
-
 ### Running all configured servers
 
 ```bash
 python mcp_servers.py run-all
-```
-
-By default, all servers except the last one will be run in the background.
-Use `--no-background` if you want to run them sequentially:
-
-```bash
-python mcp_servers.py run-all --no-background
-```
-
-Use `--parallel` to start all servers in parallel:
-
-```bash
-python mcp_servers.py run-all --parallel
 ```
 
 ### Stopping background servers

@@ -27,9 +27,6 @@ kill-server-conflicts:
 	@echo "Killing processes using conflicting server ports..."
 	@python check_server_ports.py --config $(CONFIG_FILE) --kill-conflicts
 
-run-inspector-after-kill: kill-conflicts
-	@echo "Starting MCP Inspector server after killing conflicts..."
-	@$(MAKE) run-inspector
 
 run-inspector:
 	@echo "Starting MCP Inspector server..."
