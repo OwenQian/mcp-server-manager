@@ -20,17 +20,15 @@ A Python script to manage Model Context Protocol (MCP) servers with Supergateway
 - Python 3.6+
 - Supergateway must be installed and available in your PATH
 - python-dotenv package (`pip install python-dotenv`)
+- psutil package (`pip install psutil`)
 
 ### Environment Setup
 
-Create a `.env` file in the root directory with your API keys:
+Copy the example environment file and fill in your API keys:
 
-```
-# MCP Server API Keys
-GITHUB_PERSONAL_ACCESS_TOKEN=your_github_token
-PERPLEXITY_API_KEY=your_perplexity_key
-BRAVE_API_KEY=your_brave_key
-GOOGLE_API_KEY=your_google_key
+```bash
+cp .env.example .env
+# Then edit .env to add your actual API keys
 ```
 
 Make sure to add `.env` to your `.gitignore` to avoid committing sensitive keys.
@@ -120,6 +118,17 @@ The MCP Inspector now automatically checks if required ports are available befor
 2. Use different ports with the `CLIENT_PORT`, `SERVER_PORT`, and `INSPECTOR_PORT` variables
 3. Force start with the `--force` option or `FORCE=1` environment variable
 4. Automatically kill conflicting processes with `make kill-conflicts` or `./mcp_inspector.py --kill-conflicts`
+
+### Exit Codes
+
+The port checking and conflict killing tools use the following exit codes:
+
+- `make check-ports`: Exits with code 0 if all ports are available, 1 if there are conflicts
+- `make kill-conflicts`: Exits with code 0 if all conflicts were successfully killed, 1 if there were issues
+- `./mcp_inspector.py --check-ports-only`: Returns 0 if all ports are available, 1 if there are conflicts
+- `./mcp_inspector.py --kill-conflicts`: Returns 0 if all conflicts were successfully killed, 1 if there were issues
+
+These exit codes can be useful in shell scripts for conditional logic.
 
 ## Usage
 
