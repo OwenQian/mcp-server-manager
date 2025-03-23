@@ -124,7 +124,7 @@ You can customize the MCP Inspector server by setting environment variables:
 CLIENT_PORT=5174 SERVER_PORT=8090 INSPECTOR_PORT=8001 make run-inspector
 
 # Check specific ports
-CLIENT_PORT=5174 SERVER_PORT=8090 INSPECTOR_PORT=8001 make check-ports
+CLIENT_PORT=5174 SERVER_PORT=8090 INSPECTOR_PORT=8001 make check-inspector-ports
 
 # Kill processes on specific ports
 CLIENT_PORT=5174 SERVER_PORT=8090 INSPECTOR_PORT=8001 make kill-conflicts
