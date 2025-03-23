@@ -37,9 +37,19 @@ make run-inspector
 
 ### 3. Run All MCP Servers
 ```bash
-# In another terminal, run all configured MCP servers
+# Run all configured MCP servers (with keep-alive enabled by default)
 make run-servers
+
+# Run servers without keep-alive
+make run-servers KEEP_ALIVE=0
 ```
+
+The keep-alive functionality (enabled by default) provides automatic server recovery:
+- Each server runs in its own monitored process
+- If a server crashes, it will automatically restart up to 3 times
+- The retry counter resets after 30 seconds of successful operation
+- Servers are monitored independently - if one crashes, others continue running
+- Clean shutdown of all servers when interrupted (Ctrl+C)
 
 ### 4. Configure Cursor to Use MCP Servers
 
@@ -181,6 +191,17 @@ python mcp_servers.py list
 
 ### Running servers
 
+#### Run all servers:
+```bash
+# Run with keep-alive (default)
+make run-servers
+
+# Run without keep-alive
+make run-servers KEEP_ALIVE=0
+# or
+python mcp_servers.py run-all
+```
+
 #### Run a single server:
 ```bash
 python mcp_servers.py run <server_name>
@@ -191,27 +212,24 @@ python mcp_servers.py run <server_name>
 python mcp_servers.py run <server1_name> <server2_name> ... <serverN_name>
 ```
 
-When running multiple servers, all except the last one will be launched in the background by default.
-Each background server's output is logged to `/tmp/<server_name>.log`.
+When running multiple servers:
+- Each server runs in its own process
+- By default (or with `KEEP_ALIVE=1`):
+  - Each server is monitored independently
+  - Automatic restart on crash (up to 3 attempts)
+  - Retry counter resets after 30 seconds of stable operation
+  - One server crashing doesn't affect others
+- Server output is logged to `/tmp/<server_name>.log`
 
-For example:
+### Stopping servers
+
+To stop all servers:
 ```bash
-python mcp_servers.py run filesystem mcp-inspector
+# Stop all servers (sends interrupt signal)
+make stop-servers
 ```
 
-### Running all configured servers
-
-```bash
-python mcp_servers.py run-all
-```
-
-### Stopping background servers
-
-To stop all background servers (if the main script terminates unexpectedly):
-
-```bash
-python mcp_servers.py stop
-```
+The servers will shut down gracefully when stopped.
 
 ### Removing a server configuration
 
