@@ -1,6 +1,6 @@
 # MCP Inspector Standalone Server Makefile
 
-.PHONY: run-inspector stop-inspector check-inspector-ports check-server-ports check-all-ports kill-conflicts kill-server-conflicts kill-inspector-conflicts run-servers stop-servers list
+.PHONY: run-inspector stop-inspector check-inspector-ports check-server-ports check-all-ports kill-conflicts kill-server-conflicts kill-inspector-conflicts run-servers stop-servers list restart-server restart-servers
 
 # Default environment variables
 CLIENT_PORT ?= 5173
@@ -61,3 +61,18 @@ stop-servers:
 list:
 	@echo "Listing all servers"
 	@python mcp_servers.py list
+
+restart-server:
+	@if [ -z "$(SERVER)" ]; then \
+		echo "Error: SERVER parameter required. Usage: make restart-server SERVER=<server_name>"; \
+		exit 1; \
+	fi
+	@echo "Restarting server: $(SERVER)"
+	@python check_server_port.py --server $(SERVER) --config $(CONFIG_FILE) --kill-conflicts
+	@python mcp_servers.py run $(SERVER)
+
+restart-servers:
+	@echo "Killing processes using conflicting ports and restarting all servers..."
+	@python check_server_ports.py --config $(CONFIG_FILE) --kill-conflicts
+	@python mcp_servers.py stop
+	@python mcp_launcher.py
