@@ -6,6 +6,7 @@ import os
 import socket
 import subprocess
 import sys
+import signal
 from typing import Dict, List, Tuple, Optional
 
 def check_port_in_use(port: int) -> List[Tuple[int, str]]:
@@ -15,6 +16,12 @@ def check_port_in_use(port: int) -> List[Tuple[int, str]]:
     # Create a socket to test if the port is in use
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
+        # Set SO_REUSEADDR to allow socket to be reused immediately after it's closed
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        
+        # Set a very short timeout for faster tests
+        s.settimeout(0.1)
+        
         s.bind(("127.0.0.1", port))
         # Port is free
     except socket.error:
@@ -43,6 +50,12 @@ def check_port_in_use(port: int) -> List[Tuple[int, str]]:
             # lsof didn't find anything or command failed
             pass
     finally:
+        # Make sure to close the socket and clean up properly
+        try:
+            s.shutdown(socket.SHUT_RDWR)
+        except (socket.error, OSError):
+            # Socket might not be connected, ignore
+            pass
         s.close()
     
     return conflicts
@@ -65,8 +78,14 @@ def get_server_port(config_file: str, server_name: str) -> Optional[int]:
         print(f"Error loading config file: {e}")
         sys.exit(1)
 
-def check_server_port(port: int, kill_conflicts: bool = False) -> bool:
-    """Check if a server port is in use and optionally kill the conflicting processes"""
+def check_server_port(port: int, kill_conflicts: bool = False, force: bool = False) -> bool:
+    """Check if a server port is in use and optionally kill the conflicting processes
+    
+    Args:
+        port: The port to check
+        kill_conflicts: Whether to attempt to kill conflicting processes
+        force: If true, use more aggressive termination with shorter wait times
+    """
     if port is None:
         return False
         
@@ -87,7 +106,7 @@ def check_server_port(port: int, kill_conflicts: bool = False) -> bool:
                 try:
                     # Send SIGTERM
                     print(f"  - Sending SIGTERM to PID {pid} ({name})")
-                    os.kill(pid, 15)  # SIGTERM
+                    os.kill(pid, signal.SIGTERM)
                     killed_pids.append(pid)
                 except OSError as e:
                     print(f"    Error killing process {pid}: {e}")
@@ -101,7 +120,25 @@ def check_server_port(port: int, kill_conflicts: bool = False) -> bool:
     # If any processes were killed with SIGTERM, give them a moment to shut down
     if killed_pids:
         import time
-        time.sleep(1)
+        # Use shorter wait time if force mode is enabled
+        wait_time = 1.0 if force else 1.0
+        time.sleep(wait_time)
+        
+        # If we're in force mode, try to kill any remaining processes with SIGKILL
+        if force:
+            for pid in killed_pids:
+                try:
+                    # Check if process is still running
+                    os.kill(pid, 0)  # Signal 0 is used to check if process exists
+                    # Process is still running, send SIGKILL
+                    print(f"  - Process {pid} still running, sending SIGKILL")
+                    os.kill(pid, signal.SIGKILL)
+                except OSError:
+                    # Process no longer exists, it was terminated successfully
+                    pass
+            
+            # Give a short time for SIGKILL to take effect
+            time.sleep(0.1)
     
     # Do a final check after killing processes
     if kill_conflicts:
@@ -125,6 +162,8 @@ def main():
                         help="Name of the server to check")
     parser.add_argument("--kill-conflicts", action="store_true",
                         help="Kill processes using conflicting ports")
+    parser.add_argument("--force", action="store_true",
+                        help="Use more aggressive termination with shorter wait times")
     
     args = parser.parse_args()
     
@@ -135,7 +174,7 @@ def main():
         
     print(f"Checking port {port} for server '{args.server}'")
     
-    result = check_server_port(port, args.kill_conflicts)
+    result = check_server_port(port, args.kill_conflicts, args.force)
     
     if result:
         print(f"Port {port} for server '{args.server}' is available.")

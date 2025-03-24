@@ -18,27 +18,49 @@ load_dotenv()
 background_processes = []
 
 
-def cleanup_background_processes():
+def cleanup_background_processes(force_kill=False):
     """Terminate any background processes on exit"""
+    if not background_processes:
+        return
+        
+    print(f"Cleaning up {len(background_processes)} background processes...")
+    
+    # Always start with SIGTERM for graceful shutdown
     for proc in background_processes:
         try:
             if proc.poll() is None:  # Check if process is still running
-                proc.terminate()     # First try terminating gracefully
-                print(f"Terminated background process {proc.pid}")
+                # Try to kill the entire process group if possible
+                try:
+                    pgid = os.getpgid(proc.pid)
+                    os.killpg(pgid, signal.SIGTERM)
+                    print(f"Sent SIGTERM to process group {pgid}")
+                except (ProcessLookupError, OSError, AttributeError):
+                    # Fall back to terminating just the process
+                    proc.send_signal(signal.SIGTERM)
+                    print(f"Sent SIGTERM to process {proc.pid}")
         except (ProcessLookupError, OSError) as e:
-            print(f"Error terminating process: {e}")
+            print(f"Error terminating process {proc.pid}: {e}")
     
-    # Wait a moment for processes to terminate
-    time.sleep(1)
+    # Wait time depends on force_kill mode - very short if force_kill
+    wait_time = 1.0 if force_kill else 1.0
+    time.sleep(wait_time)
     
-    # Force kill any remaining processes
+    # Send SIGKILL to any remaining processes
     for proc in background_processes:
         try:
             if proc.poll() is None:  # Still running after terminate
-                proc.kill()          # Force kill
-                print(f"Force killed background process {proc.pid}")
+                try:
+                    pgid = os.getpgid(proc.pid)
+                    os.killpg(pgid, signal.SIGKILL)
+                    print(f"Force killed process group {pgid}")
+                except (ProcessLookupError, OSError, AttributeError):
+                    proc.kill()          # Force kill
+                    print(f"Force killed process {proc.pid}")
         except (ProcessLookupError, OSError):
             pass
+                
+    # Clear the list of background processes
+    background_processes.clear()
 
 
 # Register cleanup function
@@ -116,6 +138,17 @@ def run_server(server: MCPServer, use_supergateway: bool = True, run_in_backgrou
         else:
             processed_env_vars[key] = value
     
+    # Enable faster port reuse by setting environment variable
+    # This affects Python and Node.js socket behavior
+    env["NODE_OPTIONS"] = env.get("NODE_OPTIONS", "") + " --unhandled-rejections=strict"
+    # Set SO_REUSEADDR for Python servers
+    env["PYTHONUNBUFFERED"] = "1"  # Ensure unbuffered output
+    
+    # For Node/supergateway - enable faster socket release
+    if server.server_type == "stdio" and use_supergateway:
+        processed_env_vars["UV_SO_REUSEADDR"] = "1"  # libuv socket reuse option
+        processed_env_vars["UV_TCP_SO_REUSEPORT"] = "1"  # Enable SO_REUSEPORT if available
+    
     # Update environment with processed variables
     env.update(processed_env_vars)
     
@@ -152,6 +185,8 @@ def run_server(server: MCPServer, use_supergateway: bool = True, run_in_backgrou
                 stdout=log_file,
                 stderr=log_file,
                 start_new_session=True,
+                # Ensure we can control process groups properly
+                close_fds=True,
             )
             
             # Track this process for cleanup
@@ -332,6 +367,7 @@ def main():
                     time.sleep(1)
             except KeyboardInterrupt:
                 print("\nStopping all servers...")
+                cleanup_background_processes(force_kill=True)  # Use force kill for faster termination
     
     elif args.command == "run-all":
         servers = load_config(args.config)
@@ -367,6 +403,7 @@ def main():
                     time.sleep(1)
             except KeyboardInterrupt:
                 print("\nStopping all servers...")
+                cleanup_background_processes(force_kill=True)  # Use force kill for faster termination
     
     elif args.command == "remove":
         servers = load_config(args.config)
@@ -382,7 +419,29 @@ def main():
         print(f"Removed MCP server: {args.name}")
     
     elif args.command == "stop":
-        cleanup_background_processes()
+        cleanup_background_processes(force_kill=True)
+        
+        # Additionally check for any lingering processes using server ports
+        # Useful for cases where our subprocess tracking might have missed something
+        try:
+            servers = load_config("mcp_config.json")
+            for server in servers:
+                if server.port:
+                    print(f"Checking if port {server.port} is still in use...")
+                    # Import the function to check ports directly
+                    try:
+                        # First try to import from check_server_port module
+                        from check_server_port import check_port_in_use, check_server_port
+                        conflicts = check_port_in_use(server.port)
+                        if conflicts:
+                            print(f"Port {server.port} is still in use by:")
+                            # Use check_server_port with force flag for faster termination
+                            check_server_port(server.port, kill_conflicts=True, force=True)
+                    except ImportError:
+                        print("Unable to import check_port_in_use function")
+        except Exception as e:
+            print(f"Error checking for lingering port processes: {e}")
+        
         print("All background servers have been stopped")
 
 

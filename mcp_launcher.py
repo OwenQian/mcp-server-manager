@@ -4,6 +4,9 @@ import subprocess
 import sys
 import json
 import multiprocessing
+import signal
+import time
+import os
 from keep_alive import run_with_retries
 
 def get_server_list(config_file='mcp_config.json'):
@@ -64,9 +67,34 @@ def launch_servers(keep_alive=False, config_file='mcp_config.json'):
         # Terminate all processes on keyboard interrupt
         for p in processes:
             if p.is_alive():
+                # First try SIGTERM for clean shutdown
                 p.terminate()
-                p.join()
+                
+        # Give a short grace period
+        time.sleep(1.0)
         
+        # Force kill any remaining processes
+        for p in processes:
+            if p.is_alive():
+                try:
+                    # Try to get the process ID and kill the process group
+                    os.kill(p.pid, signal.SIGKILL)
+                    print(f"Force killed process {p.pid}")
+                except OSError:
+                    pass
+                
+                # Make sure to join after killing
+                p.join(timeout=0.1)
+        
+        # Additionally, run the stop command to clean up any lingering processes
+        try:
+            print("Running additional cleanup...")
+            subprocess.run(["python", "mcp_servers.py", "stop"], 
+                           timeout=2, 
+                           check=False)
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+            pass
+            
         print("All servers stopped")
         sys.exit(0)
 

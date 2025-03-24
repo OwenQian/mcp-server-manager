@@ -16,7 +16,31 @@ def run_with_retries(command, max_retries=3):
             
             def signal_handler(signum, frame):
                 if process:
-                    process.terminate()
+                    try:
+                        # Try to kill the process group first
+                        try:
+                            pgid = os.getpgid(process.pid)
+                            os.killpg(pgid, signal.SIGTERM)
+                            print(f"Sent SIGTERM to process group {pgid}")
+                        except (ProcessLookupError, OSError):
+                            # Fall back to terminating just the process
+                            process.terminate()
+                            print(f"Sent SIGTERM to process {process.pid}")
+                        
+                        # Give a short time for graceful shutdown
+                        time.sleep(1.0)
+                        
+                        # Check if still running and force kill if needed
+                        if process.poll() is None:
+                            try:
+                                pgid = os.getpgid(process.pid)
+                                os.killpg(pgid, signal.SIGKILL)
+                                print(f"Force killed process group {pgid}")
+                            except (ProcessLookupError, OSError):
+                                process.kill()
+                                print(f"Force killed process {process.pid}")
+                    except Exception as e:
+                        print(f"Error during process termination: {e}")
                 sys.exit(0)
             
             # Handle termination signals
@@ -53,7 +77,32 @@ def run_with_retries(command, max_retries=3):
             
         except KeyboardInterrupt:
             if process:
-                process.terminate()
+                print("\nKeyboard interrupt detected. Shutting down...")
+                try:
+                    # Try to kill the process group first
+                    try:
+                        pgid = os.getpgid(process.pid)
+                        os.killpg(pgid, signal.SIGTERM)
+                        print(f"Sent SIGTERM to process group {pgid}")
+                    except (ProcessLookupError, OSError):
+                        # Fall back to terminating just the process
+                        process.terminate()
+                        print(f"Sent SIGTERM to process {process.pid}")
+                    
+                    # Give a short time for graceful shutdown
+                    time.sleep(1.0)
+                    
+                    # Check if still running and force kill if needed
+                    if process.poll() is None:
+                        try:
+                            pgid = os.getpgid(process.pid)
+                            os.killpg(pgid, signal.SIGKILL)
+                            print(f"Force killed process group {pgid}")
+                        except (ProcessLookupError, OSError):
+                            process.kill()
+                            print(f"Force killed process {process.pid}")
+                except Exception as e:
+                    print(f"Error during process termination: {e}")
             sys.exit(0)
 
 if __name__ == "__main__":
