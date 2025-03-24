@@ -1,6 +1,6 @@
 # MCP Inspector Standalone Server Makefile
 
-.PHONY: run-inspector stop-inspector check-inspector-ports check-server-ports check-all-ports kill-conflicts kill-server-conflicts kill-inspector-conflicts run-servers stop-servers list restart-server restart-servers
+.PHONY: run-inspector stop-inspector check-inspector-ports check-server-ports check-all-ports kill-conflicts kill-server-conflicts kill-inspector-conflicts run-servers stop-servers list restart-server restart-servers restart-inspector
 
 # Default environment variables
 CLIENT_PORT ?= 5173
@@ -34,12 +34,10 @@ kill-inspector-conflicts:
 
 run-inspector:
 	@echo "Starting MCP Inspector server..."
-	@python mcp_launcher.py inspector \
+	@python mcp_inspector.py \
 		--client-port $(CLIENT_PORT) \
 		--server-port $(SERVER_PORT) \
-		--inspector-port $(INSPECTOR_PORT) \
-		$(if $(FORCE),--force,) \
-		$(if $(filter 1,$(KEEP_ALIVE)),--keep-alive,)
+		--inspector-port $(INSPECTOR_PORT)
 
 run-servers:
 	@echo "Starting all MCP servers..."
@@ -53,6 +51,13 @@ stop-inspector:
 	else \
 		echo "No running MCP Inspector server found"; \
 	fi
+
+restart-inspector: stop-inspector kill-inspector-conflicts
+	@echo "Restarting MCP Inspector server..."
+	@python mcp_inspector.py \
+		--client-port $(CLIENT_PORT) \
+		--server-port $(SERVER_PORT) \
+		--inspector-port $(INSPECTOR_PORT)
 
 stop-servers:
 	@echo "Stopping all MCP servers..."
