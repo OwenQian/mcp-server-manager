@@ -13,16 +13,6 @@
       "server_type": "stdio"
     },
     {
-      "name": "mcp-installer",
-      "command": "npx",
-      "args": [
-        "@anaisbetts/mcp-installer"
-      ],
-      "env": {},
-      "port": 8091,
-      "server_type": "stdio"
-    },
-    {
       "name": "youtube",
       "command": "npx",
       "args": [
@@ -124,6 +114,17 @@
       ],
       "env": {},
       "port": 8100,
+      "server_type": "stdio"
+    },
+    {
+      "name": "puppeteer",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-puppeteer"
+      ],
+      "env": {},
+      "port": 8101,
       "server_type": "stdio"
     }
   ]
