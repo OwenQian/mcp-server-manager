@@ -122,7 +122,124 @@ def save_config(config_file: str, servers: List[MCPServer]):
         json.dump(config_data, f, indent=2)
 
 
+def check_and_update_server(server: MCPServer) -> bool:
+    """Check if server needs updates and auto-update if necessary"""
+    update_performed = False
+    
+    try:
+        if server.command in ["npx", "uvx"]:
+            # For npx/uvx commands, check if package needs update
+            if server.command == "npx":
+                # Check npm package updates
+                package_name = None
+                if "-y" in server.args and len(server.args) > server.args.index("-y") + 1:
+                    package_name = server.args[server.args.index("-y") + 1]
+                elif len(server.args) > 0 and not server.args[0].startswith("-"):
+                    package_name = server.args[0]
+                
+                if package_name:
+                    print(f"Checking for updates for npm package: {package_name}")
+                    # Use npm view to check latest version vs local
+                    try:
+                        result = subprocess.run(
+                            ["npm", "view", package_name, "version"],
+                            capture_output=True, text=True, timeout=10
+                        )
+                        if result.returncode == 0:
+                            latest_version = result.stdout.strip()
+                            print(f"Latest version available: {latest_version}")
+                            # Force update by using npx with --yes flag
+                            update_cmd = ["npx", "--yes", package_name, "--version"]
+                            update_result = subprocess.run(
+                                update_cmd, capture_output=True, text=True, timeout=30
+                            )
+                            if update_result.returncode == 0:
+                                print(f"✅ Updated {package_name} to latest version")
+                                update_performed = True
+                            else:
+                                print(f"Update check completed for {package_name}")
+                    except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
+                        print(f"Could not check updates for {package_name}: {e}")
+            
+            elif server.command == "uvx":
+                # For uvx (uv), packages are always latest when run
+                package_name = server.args[0] if server.args else None
+                if package_name:
+                    print(f"uvx will use latest version of {package_name}")
+        
+        elif server.command in ["uv", "node"] and server.args:
+            # For local servers, check if they need git updates
+            if "--directory" in server.args:
+                dir_idx = server.args.index("--directory") + 1
+                if dir_idx < len(server.args):
+                    project_dir = server.args[dir_idx]
+                    if os.path.exists(os.path.join(project_dir, ".git")):
+                        print(f"Checking for git updates in {project_dir}")
+                        try:
+                            # Fetch latest and check if updates available
+                            subprocess.run(
+                                ["git", "fetch"], cwd=project_dir, 
+                                capture_output=True, timeout=10
+                            )
+                            result = subprocess.run(
+                                ["git", "status", "-uno"], cwd=project_dir,
+                                capture_output=True, text=True, timeout=5
+                            )
+                            if "behind" in result.stdout:
+                                # Pull updates
+                                pull_result = subprocess.run(
+                                    ["git", "pull"], cwd=project_dir,
+                                    capture_output=True, text=True, timeout=30
+                                )
+                                if pull_result.returncode == 0:
+                                    print(f"✅ Updated git repository: {project_dir}")
+                                    update_performed = True
+                                else:
+                                    print(f"Failed to update {project_dir}: {pull_result.stderr}")
+                        except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
+                            print(f"Could not check git updates for {project_dir}: {e}")
+            
+            elif server.command == "node" and server.args:
+                # Check if it's a local node project
+                script_path = server.args[0]
+                project_dir = os.path.dirname(script_path)
+                if os.path.exists(os.path.join(project_dir, ".git")):
+                    print(f"Checking for git updates in {project_dir}")
+                    try:
+                        subprocess.run(
+                            ["git", "fetch"], cwd=project_dir, 
+                            capture_output=True, timeout=10
+                        )
+                        result = subprocess.run(
+                            ["git", "status", "-uno"], cwd=project_dir,
+                            capture_output=True, text=True, timeout=5
+                        )
+                        if "behind" in result.stdout:
+                            pull_result = subprocess.run(
+                                ["git", "pull"], cwd=project_dir,
+                                capture_output=True, text=True, timeout=30
+                            )
+                            if pull_result.returncode == 0:
+                                print(f"✅ Updated git repository: {project_dir}")
+                                update_performed = True
+                            else:
+                                print(f"Failed to update {project_dir}: {pull_result.stderr}")
+                    except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
+                        print(f"Could not check git updates for {project_dir}: {e}")
+    
+    except Exception as e:
+        print(f"Error during update check for {server.name}: {e}")
+    
+    return update_performed
+
+
 def run_server(server: MCPServer, use_supergateway: bool = True, run_in_background: bool = False):
+    # Check for updates before starting the server
+    print(f"Checking for updates for {server.name}...")
+    update_performed = check_and_update_server(server)
+    if update_performed:
+        print(f"🔄 {server.name} was updated to the latest version")
+    
     env = os.environ.copy()
     
     # Process environment variables to expand any ${VAR} references
@@ -137,6 +254,11 @@ def run_server(server: MCPServer, use_supergateway: bool = True, run_in_backgrou
             print(f"Using environment variable for {key}")
         else:
             processed_env_vars[key] = value
+    
+    # Auto-accept prompts to prevent hanging on update prompts
+    env["NPM_CONFIG_YES"] = "true"  # Auto-accept npm prompts
+    env["UV_NO_PROGRESS"] = "1"     # Disable uv progress bars
+    env["UV_QUIET"] = "1"           # Make uv quieter
     
     # Enable faster port reuse by setting environment variable
     # This affects Python and Node.js socket behavior
@@ -156,8 +278,18 @@ def run_server(server: MCPServer, use_supergateway: bool = True, run_in_backgrou
     
     # Only use supergateway if requested AND server is a stdio type
     if use_supergateway and server.server_type == "stdio":
-        # Construct the command to be wrapped by supergateway
-        cmd_str = f"{server.command} {' '.join(server.args)}"
+        # Modify the base command to auto-accept prompts for npx/uvx
+        if server.command == "npx":
+            # Ensure -y flag is present for auto-accept
+            modified_args = server.args[:]
+            if "-y" not in modified_args:
+                modified_args.insert(0, "-y")
+            cmd_str = f"{server.command} {' '.join(modified_args)}"
+        elif server.command == "uvx":
+            # uvx doesn't need special flags, it's non-interactive by default
+            cmd_str = f"{server.command} {' '.join(server.args)}"
+        else:
+            cmd_str = f"{server.command} {' '.join(server.args)}"
         
         # Construct the supergateway command
         cmd = ["npx", "-y", "supergateway", "--stdio", cmd_str]
@@ -166,7 +298,14 @@ def run_server(server: MCPServer, use_supergateway: bool = True, run_in_backgrou
             cmd = ["npx", "-y", "supergateway", "--port", str(server.port), "--stdio", cmd_str]
     else:
         # Run the command directly without supergateway
-        cmd = base_cmd
+        if server.command == "npx":
+            # Ensure -y flag is present for direct npx runs too
+            modified_args = server.args[:]
+            if "-y" not in modified_args:
+                modified_args.insert(0, "-y")
+            cmd = [server.command] + modified_args
+        else:
+            cmd = base_cmd
     
     print(f"Starting {server.name}...")
     print(f"Command: {' '.join(cmd)}")

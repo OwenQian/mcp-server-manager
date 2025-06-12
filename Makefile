@@ -37,7 +37,8 @@ run-inspector:
 	@python mcp_inspector.py \
 		--client-port $(CLIENT_PORT) \
 		--server-port $(SERVER_PORT) \
-		--inspector-port $(INSPECTOR_PORT)
+		--inspector-port $(INSPECTOR_PORT) \
+		$(if $(SERVER),--server $(SERVER),)
 
 run-servers:
 	@echo "Starting all MCP servers..."
@@ -57,7 +58,8 @@ restart-inspector: stop-inspector kill-inspector-conflicts
 	@python mcp_inspector.py \
 		--client-port $(CLIENT_PORT) \
 		--server-port $(SERVER_PORT) \
-		--inspector-port $(INSPECTOR_PORT)
+		--inspector-port $(INSPECTOR_PORT) \
+		$(if $(SERVER),--server $(SERVER),)
 
 stop-servers:
 	@echo "Stopping all MCP servers..."

@@ -135,7 +135,8 @@ def run_inspector(
     inspector_port: int = 8000,
     foreground: bool = False,
     env_vars: Dict[str, str] = None,
-    force: bool = False
+    force: bool = False,
+    server_name: str = None
 ):
     """Run the MCP inspector server"""
     
@@ -149,12 +150,19 @@ def run_inspector(
     if env_vars:
         env.update(env_vars)
     
-    # Always set these environment variables
+    # Always set these environment variables - MCP Inspector uses these specific env vars
     env["CLIENT_PORT"] = str(client_port)
     env["SERVER_PORT"] = str(server_port)
     
-    # Construct the command
-    cmd = ["npx", "@modelcontextprotocol/inspector", "node", "build/index.js"]
+    # Set up configuration for inspector to use
+    # The inspector needs both config file AND server name
+    config_path = "mcp_config.json"
+    if os.path.exists(config_path) and server_name:
+        # Construct the command with config file and server name
+        cmd = ["npx", "-y", "@modelcontextprotocol/inspector", "--config", config_path, "--server", server_name]
+    else:
+        # Try to run without config - this runs in standalone mode where you can manually connect
+        cmd = ["npx", "-y", "@modelcontextprotocol/inspector"]
     
     print(f"Starting MCP Inspector server...")
     print(f"Command: {' '.join(cmd)}")
@@ -230,6 +238,8 @@ def main():
                         help="Only check if ports are available and exit")
     parser.add_argument("--kill-conflicts", action="store_true",
                         help="Kill processes using conflicting ports")
+    parser.add_argument("--server", type=str,
+                        help="Server name from config file to connect to")
     
     args = parser.parse_args()
     
@@ -272,7 +282,8 @@ def main():
         inspector_port=args.inspector_port,
         foreground=args.foreground,
         env_vars=env_vars,
-        force=args.force
+        force=args.force,
+        server_name=args.server
     )
 
 
