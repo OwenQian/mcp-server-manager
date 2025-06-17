@@ -15,7 +15,6 @@ This is a Python-based management system for Model Context Protocol (MCP) server
 ### Key Components
 - **`mcp_servers.py`**: Main server management with MCPServer class, supports stdio/sse server types
 - **`mcp_launcher.py`**: Multi-server orchestrator using multiprocessing for parallel execution
-- **`mcp_inspector.py`**: Web-based debugging tool with automatic port conflict detection
 - **`keep_alive.py`**: Auto-restart functionality with exponential backoff (up to 3 retries)
 - **`mcp_config.json`**: Server configuration with environment variable resolution (`${VAR}` syntax)
 
@@ -30,9 +29,7 @@ This is a Python-based management system for Model Context Protocol (MCP) server
 Use `/usr/bin/make` in place of `make`.
 
 ### Inspector Management
-- `/usr/bin/make run-inspector` - Start MCP Inspector web interface
-- `/usr/bin/make stop-inspector` - Stop inspector server  
-- `/usr/bin/make restart-inspector` - Full restart with port cleanup
+- `/usr/bin/make run-inspector` - Start MCP Inspector web interface using npx
 
 ### Server Management
 - `/usr/bin/make run-servers` - Start all servers with keep-alive (default)
@@ -41,8 +38,7 @@ Use `/usr/bin/make` in place of `make`.
 - `/usr/bin/make list` - List configured servers
 
 ### Port Conflict Resolution
-- `/usr/bin/make check-all-ports` - Check inspector + server port availability
-- `/usr/bin/make kill-conflicts` - Kill processes using inspector ports
+- `/usr/bin/make check-server-ports` - Check server port availability
 - `/usr/bin/make kill-server-conflicts` - Kill processes using server ports
 - `/usr/bin/make restart-server SERVER=<n>` - Restart specific server with port cleanup
 
@@ -68,7 +64,7 @@ Environment variables loaded from `.env` file (gitignored) and support `${VAR}` 
 
 ## Port Management
 
-- Uses `lsof` on macOS for port conflict detection
-- Inspector uses ports: Client (5173), Server (8089), Inspector SSE (8000)
+- Uses `lsof` on macOS for port conflict detection  
 - Each MCP server gets dedicated port configured in `mcp_config.json`
 - Automatic conflict cleanup before starting services
+- MCP Inspector runs via npx and handles its own port management

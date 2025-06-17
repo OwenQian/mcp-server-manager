@@ -25,16 +25,16 @@ make run-servers
 # 4. Start web inspector for debugging
 make run-inspector
 
-# 5. View inspector at http://localhost:5173
+# 5. View inspector at the URL shown in the output
 ```
 
 ## Common Use Cases
 
 ### Debug a specific MCP server
 ```bash
-# Start inspector connected to filesystem server
-make run-inspector SERVER=filesystem
-# Then visit http://localhost:5173 to test filesystem operations
+# Start inspector (will show URL with auth token)
+make run-inspector
+# Visit the URL shown in output to test MCP servers
 ```
 
 ### Add a new MCP server
@@ -93,14 +93,14 @@ The default config includes popular servers like:
 ## Troubleshooting
 
 ```bash
-# Check what's using ports
-make check-all-ports
+# Check what's using server ports
+make check-server-ports
 
-# Kill conflicting processes
-make kill-conflicts
+# Kill conflicting processes on server ports
+make kill-server-conflicts
 
-# Stop everything
-make stop-servers && make stop-inspector
+# Stop servers (inspector stops with Ctrl+C)
+make stop-servers
 
 # View server logs
 tail -f /tmp/filesystem.log
