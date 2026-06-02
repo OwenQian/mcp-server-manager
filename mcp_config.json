@@ -138,6 +138,54 @@
       "env": {},
       "port": 8102,
       "server_type": "stdio"
+    },
+    {
+      "name": "google-flights",
+      "command": "/Users/owen/Projects/google-flights-mcp-server/flights-mcp-server",
+      "args": [],
+      "env": {
+        "SERPAPI_KEY": "${SERPAPI_KEY}"
+      },
+      "port": 8103,
+      "server_type": "stdio"
+    },
+    {
+      "name": "glean",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@gleanwork/mcp-server"
+      ],
+      "env": {
+        "GLEAN_INSTANCE": "doordash-be",
+        "GLEAN_API_TOKEN": "${GLEAN_API_TOKEN}"
+      },
+      "port": 8104,
+      "server_type": "stdio"
+    },
+    {
+      "name": "bear",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/jkawamoto/mcp-bear",
+        "mcp-bear",
+        "--token",
+        "${BEAR_TOKEN}"
+      ],
+      "env": {},
+      "port": 8105,
+      "server_type": "stdio"
+    },
+    {
+      "name": "dayone",
+      "command": "/usr/local/bin/dayone",
+      "args": [
+        "mcp"
+      ],
+      "env": {},
+      "port": 8106,
+      "server_type": "stdio"
     }
   ]
 }
