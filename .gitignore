@@ -29,6 +29,13 @@ var/
 logs/
 /tmp/*.log
 
+# Local package artifacts
+/package/
+gleanwork-mcp-server-*.tgz
+
+# Local Claude permission state
+.claude/settings.local.json
+
 # OS specific
 .DS_Store
 .DS_Store?
