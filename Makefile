@@ -12,7 +12,7 @@ check-server-ports:
 
 run-inspector:
 	@echo "Starting MCP Inspector..."
-	@npx @modelcontextprotocol/inspector
+	@npx -y @modelcontextprotocol/inspector
 
 run-servers:
 	@echo "Starting all MCP servers..."
